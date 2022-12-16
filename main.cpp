@@ -2,30 +2,30 @@
 #include <iostream>
 #include <stdlib.h>
 #include <time.h>
-#include <thread>
 #include <queue>
 #include <algorithm>
-#include <mutex>
 #include <cstring>
+#include <pthread.h>
+#include <unistd.h>
 
-FILE *file_out = fopen("output.txt", "w");
+pthread_mutex_t mutex;
+FILE *file_out;
 std::queue<int> in_line; //очередь, в которой числа - это имена посетителей
 int count_of_toserveCustomers = 10; //это количество посетителей, которые придут сегодня
 int count_of_servedCustomers = 0; // количество посетителей, которых уже обслужили
-std::mutex mutex; // мьютекс (двоичный семафор)
 bool isHairdresserSleeps; // состояние рабочего спит / не спит
 
 
 void print(); // объялвение метода
 
-void customerCame() {
+void* customerCame(void* args) {
     //метод, описывающий, что происходит, когда приходит новый посетитель
     for (int i = 0 ; i < count_of_toserveCustomers; ++i) {
-        int timetoWait = 500;
+        int timetoWait = 1;
         srand(time(nullptr));
         timetoWait *= rand() % 5 + 1; // время через которое подходит следующий посетитель
-        std::this_thread::sleep_for(std::chrono::milliseconds(timetoWait));
-        mutex.lock();
+        sleep(timetoWait);
+        pthread_mutex_lock(&mutex);
         std::cout << "CUSTOMER CAME\n";
         std::cout << "QUEUE BEFORE NEW CUSTOMER:\n";
         fprintf(file_out, "CUSTOMER CAME\n");
@@ -37,14 +37,14 @@ void customerCame() {
         std::cout << "QUEUE AFTER NEW CUSTOMER:\n";
         fprintf(file_out, "QUEUE AFTER NEW CUSTOMER:\n");
         print();
-        mutex.unlock();
+        pthread_mutex_unlock(&mutex);
     }
 }
 
-void WorkerWork() {
+void* WorkerWork(void* args) {
     //метод, описывающий, что происходит с рабочим и очередью
     while(true){
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        sleep(2);
         if (count_of_servedCustomers == count_of_toserveCustomers) { // если количетсов посетителей на сегодня кончилось
             std::cout << "WORK IS DONE, I GO TO SLEEP\n";
             fprintf(file_out, "WORK IS DONE, I GO TO SLEEP\n");
@@ -64,21 +64,23 @@ void WorkerWork() {
                     fprintf(file_out, "HELLO, DEAR CUSTOMER %d ! I AM GOING TO CUT YOUR HAIRCUT\n", in_line.front());
 
                 }
-                mutex.lock();
+                pthread_mutex_lock(&mutex);
                 isHairdresserSleeps = false;
                 std::cout << "QUEUE BEFORE HAIRDRESSER:\n";
                 fprintf(file_out, "QUEUE BEFORE HAIRDRESSER:\n");
-                int time_to_serve_this_client = 1000;
+                int time_to_serve_this_client = 1;
                 srand(time(nullptr));
-                time_to_serve_this_client *= rand() % 6 + 1;//сколько времени потребуется на то, чтобы подстричь одного клиента
+                time_to_serve_this_client *= rand() % 6;//сколько времени потребуется на то, чтобы подстричь одного клиента
                 print();
-                std::this_thread::sleep_for(std::chrono::milliseconds(time_to_serve_this_client));
+                sleep(time_to_serve_this_client);
                 in_line.pop();
+                if (in_line.empty()) {
+                    isHairdresserSleeps = true;
+                }
                 std::cout << "QUEUE AFTER HAIRDRESSER:\n";
                 fprintf(file_out, "QUEUE AFTER HAIRDRESSER:\n");
                 print();
-                mutex.unlock();
-
+                pthread_mutex_unlock(&mutex);
                 ++count_of_servedCustomers;
                 continue;
             }
@@ -115,6 +117,7 @@ void print() {
 
 int main(int argc, char* argv[]) {
     FILE *file_in = fopen("input.txt", "r");
+    file_out = fopen("output.txt", "w");
     if (argc != 1) {
         if (!std::strcmp(argv[1], "-f")) {
             fscanf(file_in, "%d", &count_of_toserveCustomers);
@@ -135,9 +138,14 @@ int main(int argc, char* argv[]) {
     if (count_of_toserveCustomers < 0) {
         throw std::runtime_error("Wrong input!");
     }
-    std::thread tWorker(WorkerWork); // создание потоков
-    std::thread tCustomer(customerCame);
-    tWorker.join();
-    tCustomer.join();
+    pthread_mutex_init(&mutex, NULL);
+
+    pthread_t th1;// объявляем потоки
+    pthread_t th2;
+
+    pthread_create(&th1, NULL, WorkerWork, NULL); //  создаем потоки
+    pthread_create(&th2, NULL, customerCame, NULL);
+    pthread_join(th1, NULL);  //  создаем последовательность потоков
+    pthread_join(th2, NULL);
     return 0;
 }
