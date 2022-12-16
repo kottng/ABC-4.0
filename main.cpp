@@ -1,7 +1,5 @@
 #include <iomanip>
 #include <iostream>
-#include <stdlib.h>
-#include <time.h>
 #include <queue>
 #include <algorithm>
 #include <cstring>
@@ -138,14 +136,14 @@ int main(int argc, char* argv[]) {
     if (count_of_toserveCustomers < 0) {
         throw std::runtime_error("Wrong input!");
     }
-    pthread_mutex_init(&mutex, NULL);
+    pthread_mutex_init(&mutex, nullptr);
 
     pthread_t th1;// объявляем потоки
     pthread_t th2;
 
-    pthread_create(&th1, NULL, WorkerWork, NULL); //  создаем потоки
-    pthread_create(&th2, NULL, customerCame, NULL);
-    pthread_join(th1, NULL);  //  создаем последовательность потоков
-    pthread_join(th2, NULL);
+    pthread_create(&th1, nullptr, WorkerWork, nullptr); //  создаем потоки
+    pthread_create(&th2, nullptr, customerCame, nullptr);
+    pthread_join(th1, nullptr);  //  создаем последовательность потоков
+    pthread_join(th2, nullptr);
     return 0;
 }
